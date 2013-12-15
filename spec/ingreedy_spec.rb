@@ -1,3 +1,4 @@
+# encoding: UTF-8
 require File.expand_path(File.dirname(__FILE__) + "/../lib/ingreedy")
 
 RSpec::Matchers.define :parse_the_unit do |unit|
@@ -18,6 +19,15 @@ RSpec::Matchers.define :parse_the_amount do |amount|
     "got '#{ingreedy_output.amount}' instead"
   end
 end
+RSpec::Matchers.define :parse_the_prep_method do |prep_method|
+  match do |ingreedy_output|
+    ingreedy_output.prep_method == prep_method
+  end
+  failure_message_for_should do |ingreedy_output|
+    "expected to parse the prep method #{prep_method} from the query '#{ingreedy_output.query}' " +
+    "got '#{ingreedy_output.prep_method}' instead"
+  end
+end
 
 describe "amount formats" do
   before(:all) do
@@ -26,17 +36,51 @@ describe "amount formats" do
     @expected_amounts["1 1/2 cups flour"] = 1.5
     @expected_amounts["1.0 cup flour"] = 1.0
     @expected_amounts["1.5 cups flour"] = 1.5
+    @expected_amounts["1-1/2 cups flour"] = 1.5
     @expected_amounts["1 2/3 cups flour"] = 1 + 2/3.to_f
     @expected_amounts["1 (28 ounce) can crushed tomatoes"] = 28
     @expected_amounts["2 (28 ounce) can crushed tomatoes"] = 56
+    @expected_amounts["4 (403 ml) can crushed tomatoes"] = 1612.0
     @expected_amounts["1/2 cups flour"] = 0.5
     @expected_amounts[".25 cups flour"] = 0.25
-    # zobar uncovered this bug:
     @expected_amounts["12oz tequila"] = 12
+    @expected_amounts['½ cup coconut flour'] = 0.5
+    @expected_amounts['1½ cup coconut flour'] = 1.5
   end
+
   it "should parse the correct amount as a float" do
     @expected_amounts.each do |query, expected|
       Ingreedy.parse(query).should parse_the_amount(expected)
+    end
+  end
+end
+
+describe "prep_method" do
+  before(:all) do
+    @expected_prep_methods = {
+      "diced tomatoes" => :dice,
+      "dice tomatoes" => :dice,
+      "slice tomatoes" => :slice,
+      "sliced tomatoes" => :slice,
+      "chopped tomatoes" => :chop,
+      "chop tomatoes" => :chop,
+      "dash of pepper" => :dash,
+      "pinch of salt" => :pinch,
+      "minced garlic" => :mince,
+      "cubed cheese" => :cube,
+      "cube cheese" => :cube,
+      "shredded cheese" => :shred,
+      "shred cheese" => :shred,
+      "drizzle of olive oil" => :drizzle,
+      "peeled carrots" => :peel,
+      "grated nutmeg" => :grated,
+      "grate fresh ginger" => :grated
+    }
+  end
+  
+  it "should parse the prep method from the ingredient" do
+    @expected_prep_methods.each do |query, expected|
+      Ingreedy.parse(query).prep_method.should == expected
     end
   end
 end
@@ -60,6 +104,8 @@ describe "english units" do
       @expected_units["2 pt. flour"] = :pint
       @expected_units["1 lb flour"] = :pound
       @expected_units["1 lb. flour"] = :pound
+      @expected_units["1 lbs flour"] = :pound
+      @expected_units["1 lbs. flour"] = :pound
       @expected_units["1 pound flour"] = :pound
       @expected_units["2 pounds flour"] = :pound
       @expected_units["2 qt flour"] = :quart
@@ -130,6 +176,7 @@ describe "metric units" do
       @expected_units["1 mg. water"] = :milligram
       @expected_units["1 ml water"] = :milliliter
       @expected_units["1 ml. water"] = :milliliter
+      @expected_units["1 (403 mL) can water"] = :milliliter
     end
     it "should parse the units correctly" do
       @expected_units.each do |query, expected|
